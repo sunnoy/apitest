@@ -1,0 +1,68 @@
+apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata:
+  name: v1.api.ytool.io #名称
+spec:
+  group: api.ytool.io #API 组名
+  version: v1 #API 版本
+  groupPriorityMinimum: 100 #组的优先级
+  versionPriority: 100 #版本在组中的优先级
+  insecureSkipTLSVerify: true #是否验证https证书
+  service:
+    name: ytool-api #拓展 Apiserver 服务的名称
+    namespace: default #拓展 Apiserver 服务的名字空间
+#  caBundle: "" #PEM 编码的 CA 证书，用于对 Webhook 服务器的证书签名
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ytool-api
+spec:
+  selector:
+    matchLabels:
+      app: ytool-api
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ytool-api
+    spec:
+      # sa需要cm的get权限
+      serviceAccountName: ytool-api
+      tolerations:
+        - key: "node-role.kubernetes.io/master"
+          operator: "Exists"
+          effect: "NoSchedule"
+      containers:
+        - name: ytool-api
+          image: xxx/ytool-api
+          imagePullPolicy: IfNotPresent
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ytool-api
+rules:
+  - apiGroups: [ "" ]
+    resources: [ "configmaps" ]
+    verbs: [ "get" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ytool-api
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ytool-api
+subjects:
+  - kind: ServiceAccount
+    name: ytool-api
+    namespace: default
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ytool-api
+  namespace: default
